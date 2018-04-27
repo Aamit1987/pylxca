@@ -8,11 +8,11 @@
 data and displays on ostream.
 '''
 
-import json, re, os, sys, logging
-from pprint import pprint
-import xml.etree.cElementTree as ElementTree
+import logging
+import os
+import sys
 
-import pylxca.pylxca_cmd
+import xml.etree.cElementTree as ElementTree
 
 filter_file = "lxca_filters.xml"
 output_file = "lxca_console.out"
@@ -22,16 +22,20 @@ pylxca_outfile = os.path.join(os.getenv('PYLXCA_CMD_PATH'), output_file)
 indent = 0
 logger = logging.getLogger(__name__)
 
+
 class Tee(object):
     def __init__(self, *files):
         self.files = files
+
     def write(self, obj):
         for f in self.files:
             f.write(obj)
-            f.flush() # If you want the output to be visible immediately
-    def flush(self) :
+            f.flush()  # If you want the output to be visible immediately
+
+    def flush(self):
         for f in self.files:
             f.flush()
+
 
 class lxca_ostream(object):
     def __init__(self):
@@ -41,7 +45,7 @@ class lxca_ostream(object):
     def get_lvl(self):
         return self.print_lvl
 
-    def set_lvl(self,lvl):
+    def set_lvl(self, lvl):
         self.print_lvl = lvl
 
         try:
@@ -63,23 +67,23 @@ class lxca_ostream(object):
         print(string)
         sys.stdout = sys.__stdout__
 
+
 class lxca_view(object):
 
-    def __init__(self,ostream = sys.__stdout__):
+    def __init__(self, ostream=sys.__stdout__):
         self.ostream = ostream
-        self.vf_dict =  { 'chassis':'chassisList',
-                          'nodes':'nodesList',
-                          'switches':'switchList',
-                          'fans':'fanList',
-                          'powersupplies':'powerSupplyList',
-                          'fanmuxes':'fanMuxList',
-                          'cmms':'cmmList',
-                          'scalablesystem':'scalablesystem',
-                          'discovery':'discovery',
-                          'updatepolicy': 'policies'}
+        self.vf_dict = {'chassis': 'chassisList',
+                        'nodes': 'nodesList',
+                        'switches': 'switchList',
+                        'fans': 'fanList',
+                        'powersupplies': 'powerSupplyList',
+                        'fanmuxes': 'fanMuxList',
+                        'cmms': 'cmmList',
+                        'scalablesystem': 'scalablesystem',
+                        'discovery': 'discovery',
+                        'updatepolicy': 'policies'}
 
-
-    def get_val(self,py_obj, tag ):
+    def get_val(self, py_obj, tag):
         a = []
         try:
             if isinstance(py_obj, (dict)):
@@ -88,7 +92,7 @@ class lxca_view(object):
 
                 for i in range(0, len(py_obj)):
                     a.append(py_obj[i][tag])
-        except:
+        except BaseException:
             return None
         return a
 
@@ -97,44 +101,51 @@ class lxca_view(object):
         vf_root = vf_tree.getroot()
 
         for vf in vf_root.findall(cmd_name):
-            if vf.attrib['name']==filter_tag:
+            if vf.attrib['name'] == filter_tag:
                 return vf
 
-    def print_recur(self,py_obj,view_filter):
+    def print_recur(self, py_obj, view_filter):
         """Recursively prints the python object content as per view filter"""
         global indent
-        if str(view_filter.attrib.get('type')) != "object" :
-            self.ostream.write(' '*indent + '%s: %s' % (view_filter.tag.title(), self.get_val(py_obj,view_filter.attrib.get('name', view_filter.text))))
-        #else:
+        if str(view_filter.attrib.get('type')) != "object":
+            self.ostream.write(
+                ' ' * indent + '%s: %s' %
+                (view_filter.tag.title(), self.get_val(
+                    py_obj, view_filter.attrib.get(
+                        'name', view_filter.text))))
+        # else:
         #    self.ostream.write('%s: ' % (view_filter.tag.title()))
 
         indent += 4
         # View Filter has children so
-        py_obj_item = self.get_val(py_obj, view_filter.attrib.get('name', view_filter.text))
-        #if py_obj_item is list then iterate through the list and call print recur for each
+        py_obj_item = self.get_val(
+            py_obj, view_filter.attrib.get(
+                'name', view_filter.text))
+        # if py_obj_item is list then iterate through the list and call print
+        # recur for each
         if isinstance(py_obj_item, (list)):
             for item in py_obj_item:
                 for elem in view_filter.getchildren():
-                    self.print_recur(item,elem)
+                    self.print_recur(item, elem)
         else:
             for elem in view_filter.getchildren():
-                self.print_recur(py_obj_item,elem)
+                self.print_recur(py_obj_item, elem)
         indent -= 4
 
-    def print_cmd_resp_object(self,cmd_resp_item, vf):
+    def print_cmd_resp_object(self, cmd_resp_item, vf):
         for vf_elem in vf.getchildren():
-            self.print_recur(cmd_resp_item,vf_elem)
+            self.print_recur(cmd_resp_item, vf_elem)
 
-
-    def show_output(self,cmd_reponse, cmd_name,filter_tag):
-        vf = self.get_view_filter(cmd_name,filter_tag)
-        self.ostream.write("Printing "+ cmd_name + " Output:"+ "\n")
+    def show_output(self, cmd_reponse, cmd_name, filter_tag):
+        vf = self.get_view_filter(cmd_name, filter_tag)
+        self.ostream.write("Printing " + cmd_name + " Output:" + "\n")
 
         if len(list(cmd_reponse.keys())) == 0:
-            self.ostream.write("No "+ filter_tag + " returned."+ "\n")
+            self.ostream.write("No " + filter_tag + " returned." + "\n")
         elif len(list(cmd_reponse.keys())) > 1:
             self.print_cmd_resp_object(cmd_reponse, vf)
         else:
             for cmd_resp_item in cmd_reponse[list(cmd_reponse.keys())[0]]:
                 self.print_cmd_resp_object(cmd_resp_item, vf)
-                self.ostream.write('\n-----------------------------------------------------')
+                self.ostream.write(
+                    '\n-----------------------------------------------------')

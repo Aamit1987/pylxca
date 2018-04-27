@@ -8,17 +8,20 @@
 
 '''
 
-import requests
-import logging, json
-import os, platform
 import base64
+import json
+import logging
+import os
+import platform
 import pkg_resources
-from _socket import timeout
-from requests.sessions import session
+import requests
+
 from requests.adapters import HTTPAdapter
+from requests.sessions import session
 from requests.packages.urllib3.poolmanager import PoolManager
 
 logger = logging.getLogger(__name__)
+
 
 class lxcaAdapter(HTTPAdapter):
 
@@ -37,15 +40,25 @@ class Error(Exception):
     """This exception is raised for any other low level errors """
     pass
 
+
 class ConnectionError(Error):
-    """This exception is raised when a connection related problem occurs, where a retry might make sense."""
+    """This exception is raised when a connection related problem occurs,
+    where a retry might make sense."""
     pass
+
 
 class lxca_connection(object):
     '''
     C
     '''
-    def __init__(self, url, user = None,  passwd = None, verify_callback = True, retries = 3):
+
+    def __init__(
+            self,
+            url,
+            user=None,
+            passwd=None,
+            verify_callback=True,
+            retries=3):
         self.url = url
         self.user = user
         self.passwd = base64.b16encode(passwd.encode())
@@ -60,7 +73,8 @@ class lxca_connection(object):
             self.verify_callback = verify_callback
 
     def __repr__(self):
-        return "%s(%s, %s, debug=%s)" %(self.__class__.__name__, repr(self.url), self.user, repr(self.debug))
+        return "%s(%s, %s, debug=%s)" % (self.__class__.__name__,
+                                         repr(self.url), self.user, repr(self.debug))
 
     def connect(self):
         '''
@@ -76,19 +90,32 @@ class lxca_connection(object):
             # You don't have to worry about case-sensitivity with
             # the dictionary keys, because default_headers uses a custom
             # CaseInsensitiveDict implementation within requests' source code.
-            self.session.headers.update({'content-type': 'application/json; charset=utf-8','User-Agent': 'LXCA via Python Client / ' + pylxca_version})
+            self.session.headers.update(
+                {
+                    'content-type': 'application/json; charset=utf-8',
+                    'User-Agent': 'LXCA via Python Client / ' + pylxca_version})
 
-
-            payload = dict(UserId= self.user, password=base64.b16decode(self.passwd).decode())
+            payload = dict(
+                UserId=self.user,
+                password=base64.b16decode(
+                    self.passwd).decode())
             pURL = self.url + '/sessions'
             self.session.mount(self.url, lxcaAdapter(max_retries=self.retires))
-            r = self.session.post(pURL,data = json.dumps(payload),headers=dict(Referer=pURL),verify=self.verify_callback, timeout = 3)
+            r = self.session.post(
+                pURL,
+                data=json.dumps(payload),
+                headers=dict(
+                    Referer=pURL),
+                verify=self.verify_callback,
+                timeout=3)
             r.raise_for_status()
         except ConnectionError as e:
             logger.debug("Connection Exception: Exception = %s", e)
             return False
         except requests.exceptions.HTTPError as e:
-            logger.debug("Connection Exception: Exception = %s", e.response.text)
+            logger.debug(
+                "Connection Exception: Exception = %s",
+                e.response.text)
             return False
         except Exception as e:
             logger.debug("Connection Exception: Exception = %s", e)
@@ -100,9 +127,10 @@ class lxca_connection(object):
         So we need to set it explicitly here
         '''
         if r.status_code == requests.codes['ok']:
-            self.session.headers.update({'X-Csrf-Token': self.session.cookies.get('csrf')})
+            self.session.headers.update(
+                {'X-Csrf-Token': self.session.cookies.get('csrf')})
 
-        return  True
+        return True
 
     def test_connection(self):
         '''
@@ -110,8 +138,9 @@ class lxca_connection(object):
         '''
         try:
             test_url = self.url + '/aicc'
-            resp = self.session.get(test_url,verify=self.session.verify, timeout=3)
-            #If valid JSON object is parsed then the connection is successfull
+            resp = self.session.get(
+                test_url, verify=self.session.verify, timeout=3)
+            # If valid JSON object is parsed then the connection is successfull
             py_obj = json.loads(resp.text)
         except Exception as e:
             raise ConnectionError("Invalid connection")
@@ -140,7 +169,7 @@ class lxca_connection(object):
         """
 
         # Ping parameters as function of OS
-        ping_str = "-n 1" if  platform.system().lower()=="windows" else "-c 1"
+        ping_str = "-n 1" if platform.system().lower() == "windows" else "-c 1"
 
         # Ping
         return os.system("ping " + ping_str + " " + host) == 0

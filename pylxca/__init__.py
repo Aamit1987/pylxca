@@ -22,7 +22,7 @@ except ImportError:
 
 logging.getLogger(__name__).addHandler(NullHandler())
 
-#Configure Logger
+# Configure Logger
 import logging.config
 pylxca.pylxca_api.lxca_rest().set_log_config()
 pyshell()
